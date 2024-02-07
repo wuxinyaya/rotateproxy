@@ -27,18 +27,18 @@ var (
 )
 
 func init() {
-	flag.StringVar(&baseCfg.ListenAddr, "l", ":8899", "listen address")
-	flag.StringVar(&baseCfg.Username, "user", "", "authentication username")
-	flag.StringVar(&baseCfg.Password, "pass", "", "authentication password")
-	flag.StringVar(&email, "email", "", "email address")
-	flag.StringVar(&token, "token", "", "token")
-	flag.StringVar(&proxy, "proxy", "", "proxy")
+	flag.StringVar(&baseCfg.ListenAddr, "l", ":8899", "监听地址和端口")
+	flag.StringVar(&baseCfg.Username, "user", "", "开启的socks5认证账号")
+	flag.StringVar(&baseCfg.Password, "pass", "", "开启的socks5认证密码")
+	flag.StringVar(&email, "email", "", "fofa认证账号邮箱")
+	flag.StringVar(&token, "token", "", "fofa认证账号token")
+	flag.StringVar(&proxy, "proxy", "", "访问fofa使用proxy")
+	flag.IntVar(&pageCount, "page", 100, "爬取fofa页面数")
 	flag.StringVar(&rule, "rule", fmt.Sprintf(`protocol=="socks5" && "Version:5 Method:No Authentication(0x00)" && after="%s" && country="CN"`, time.Now().AddDate(0, -3, 0).Format(time.DateOnly)), "search rule")
-	flag.StringVar(&checkURL, "check", ``, "check url")
-	flag.StringVar(&checkURLwords, "checkWords", ``, "words in check url")
+	flag.StringVar(&checkURL, "check", ``, "验证代理是否可用的URL")
+	flag.StringVar(&checkURLwords, "checkWords", ``, "验证代理是否可用的关键字（即访问到URL里面包含制定关键字则判断代理可用）")
 	flag.IntVar(&baseCfg.IPRegionFlag, "region", 0, "0: all 1: cannot bypass gfw 2: bypass gfw")
-	flag.IntVar(&baseCfg.SelectStrategy, "strategy", 1, "0: random, 1: Select the one with the shortest timeout")
-	flag.IntVar(&pageCount, "page", 5, "the page count you want to crawl")
+	flag.IntVar(&baseCfg.SelectStrategy, "strategy", 1, "0: 随机选择（推荐）, 1: 选择最快的")
 	flag.Parse()
 
 	if checkURL != "https://www.google.com" && checkURLwords == "Copyright The Closure Library Authors" {
@@ -87,7 +87,7 @@ func main() {
 		c.Serve(ctx)
 	}()
 
-	<- c
+	<-c
 	err := rotateproxy.CloseDB()
 	if err != nil {
 		rotateproxy.ErrorLog(rotateproxy.Warn("Error closing db: %v", err))

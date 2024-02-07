@@ -61,7 +61,7 @@ func RunCrawler(fofaApiKey, fofaEmail, rule string, pageNum int, proxy string) (
 	if err != nil {
 		return err
 	}
-	InfoLog(Notice("get %d host", len(res.Results)))
+	InfoLog(Notice("获取 %d 个代理", len(res.Results)))
 	for _, value := range res.Results {
 		host := value[0]
 		addProxyURL(fmt.Sprintf("socks5://%s", host))
@@ -81,16 +81,19 @@ func StartRunCrawler(ctx context.Context, fofaApiKey, fofaEmail, rule string, pa
 	}
 	go func() {
 		runCrawlerFunc()
+		InfoLog(Notice("从fofa获取代理服务器完成，10分钟后重新获取"))
 		ticker := time.NewTicker(600 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
-				case <- ticker.C:
-					runCrawlerFunc()
-				case <- ctx.Done():
-					return
+			case <-ticker.C:
+				runCrawlerFunc()
+				InfoLog(Notice("从fofa获取代理服务器完成，10分钟后重新获取"))
+			case <-ctx.Done():
+				InfoLog(Notice("从fofa获取代理服务器完成，10分钟后重新获取"))
+				return
 			}
-			
+
 		}
 	}()
 }
