@@ -35,8 +35,8 @@ func init() {
 	flag.StringVar(&proxy, "proxy", "", "访问fofa使用proxy")
 	flag.IntVar(&pageCount, "page", 100, "爬取fofa页面数")
 	flag.StringVar(&rule, "rule", fmt.Sprintf(`protocol=="socks5" && "Version:5 Method:No Authentication(0x00)" && after="%s" && country="CN"`, time.Now().AddDate(0, -3, 0).Format(time.DateOnly)), "search rule")
-	flag.StringVar(&checkURL, "check", ``, "验证代理是否可用的URL")
-	flag.StringVar(&checkURLwords, "checkWords", ``, "验证代理是否可用的关键字（即访问到URL里面包含制定关键字则判断代理可用）")
+	flag.StringVar(&checkURL, "check", ``, "验证代理是翻墙")
+	flag.StringVar(&checkURLwords, "checkWords", ``, "验证代理是否翻墙的关键字（即访问到URL里面包含制定关键字则判断代理可用）")
 	flag.IntVar(&baseCfg.IPRegionFlag, "region", 0, "0: all 1: cannot bypass gfw 2: bypass gfw")
 	flag.IntVar(&baseCfg.SelectStrategy, "strategy", 1, "0: 随机选择（推荐）, 1: 选择最快的")
 	flag.Parse()
@@ -59,6 +59,7 @@ func isFlagPassed(name string) bool {
 }
 
 func main() {
+	//rotateproxy.Crawlergithub("http://127.0.0.1:7890")
 	if !isFlagPassed("email") || !isFlagPassed("token") {
 		flag.Usage()
 		return

@@ -6,8 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -25,11 +27,42 @@ type fofaAPIResponse struct {
 func addProxyURL(url string) {
 	CreateProxyURL(url)
 }
-
-func RunCrawler(fofaApiKey, fofaEmail, rule string, pageNum int, proxy string) (err error) {
+func Crawlergithub(proxy string) {
+	req, err := http.NewRequest("GET", "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt", nil)
+	if err != nil {
+		return
+	}
+	tr := &http.Transport{TLSClientConfig: &tls.Config{
+		InsecureSkipVerify: true,
+	}}
+	if proxy != "" {
+		proxyUrl, err := url.Parse(proxy)
+		if err == nil { // 使用传入代理
+			tr.Proxy = http.ProxyURL(proxyUrl)
+		}
+	}
+	resp, err := (&http.Client{Transport: tr}).Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(string(body), "\n")
+	InfoLog(Notice("获取 %d 个代理", len(lines)))
+	for _, line := range lines {
+		addProxyURL(fmt.Sprintf("socks5://%s", line))
+	}
+	crawlDone <- struct{}{}
+	//fmt.Printf("Error: %s\n", string(body))
+	return
+}
+func Crawlerfofa(fofaApiKey, fofaEmail, rule string, pageNum int, proxy string) (bool, error) {
 	req, err := http.NewRequest("GET", "https://fofa.info/api/v1/search/all", nil)
 	if err != nil {
-		return err
+		return true, err
 	}
 	tr := &http.Transport{TLSClientConfig: &tls.Config{
 		InsecureSkipVerify: true,
@@ -52,14 +85,17 @@ func RunCrawler(fofaApiKey, fofaEmail, rule string, pageNum int, proxy string) (
 	// resp, err := http.DefaultClient.Do(req)
 	resp, err := (&http.Client{Transport: tr}).Do(req)
 	if err != nil {
-		return err
+		return true, err
 	}
-	InfoLog(Noticeln("start to parse proxy url from response"))
+	//InfoLog(Noticeln("start to parse proxy url from response"))
 	defer resp.Body.Close()
 	var res fofaAPIResponse
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
-		return err
+		return true, err
+	}
+	if len(res.Results) == 0 {
+		return false, err
 	}
 	InfoLog(Notice("获取 %d 个代理", len(res.Results)))
 	for _, value := range res.Results {
@@ -67,30 +103,40 @@ func RunCrawler(fofaApiKey, fofaEmail, rule string, pageNum int, proxy string) (
 		addProxyURL(fmt.Sprintf("socks5://%s", host))
 	}
 	crawlDone <- struct{}{}
-	return
+	return true, nil
 }
 
 func StartRunCrawler(ctx context.Context, fofaApiKey, fofaEmail, rule string, pageCount int, proxy string) {
-	runCrawlerFunc := func() {
+	runCrawlerfofa := func() {
 		for i := 1; i <= pageCount; i++ {
-			err := RunCrawler(fofaApiKey, fofaEmail, rule, i, proxy)
+			flag, err := Crawlerfofa(fofaApiKey, fofaEmail, rule, i, proxy)
 			if err != nil {
 				ErrorLog(Warn("[!] error: %v", err))
 			}
+			if !flag {
+				break
+			}
 		}
 	}
+	runCrawlergithub := func() {
+		Crawlergithub(proxy)
+	}
 	go func() {
-		runCrawlerFunc()
-		InfoLog(Notice("从fofa获取代理服务器完成，10分钟后重新获取"))
-		ticker := time.NewTicker(600 * time.Second)
+		runCrawlerfofa()
+		InfoLog(Notice("从fofa获取代理服务器完成，60分钟后重新获取"))
+		runCrawlergithub()
+		InfoLog(Notice("从github获取代理服务器完成，60分钟后重新获取"))
+		ticker := time.NewTicker(3600 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				runCrawlerFunc()
-				InfoLog(Notice("从fofa获取代理服务器完成，10分钟后重新获取"))
+				runCrawlerfofa()
+				InfoLog(Notice("从fofa获取代理服务器完成，60分钟后重新获取"))
+				runCrawlergithub()
+				InfoLog(Notice("从github获取代理服务器完成，60分钟后重新获取"))
 			case <-ctx.Done():
-				InfoLog(Notice("从fofa获取代理服务器完成，10分钟后重新获取"))
+				InfoLog(Notice("所有源代理服务器完成，60分钟后重新获取"))
 				return
 			}
 

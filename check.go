@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -41,7 +42,7 @@ func CheckProxyAlive(proxyURL string) (respBody string, timeout int64, avail boo
 	startTime := time.Now()
 
 	resp, err := httpclient.Get("https://searchplugin.csdn.net/api/v1/ip/get?ip=")
-	
+
 	if err != nil {
 		return "", 0, false
 	}
@@ -52,7 +53,7 @@ func CheckProxyAlive(proxyURL string) (respBody string, timeout int64, avail boo
 		return "", 0, false
 	}
 	if !strings.Contains(string(body), `"address"`) {
-			return "", 0, false
+		return "", 0, false
 	}
 	return string(body), timeout, true
 }
@@ -95,31 +96,48 @@ func CheckProxyWithCheckURL(proxyURL string, checkURL string, checkURLwords stri
 
 func StartCheckProxyAlive(ctx context.Context, checkURL string, checkURLwords string) {
 	go func() {
-		ticker := time.NewTicker(120 * time.Second)
+		ticker := time.NewTicker(1800 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-crawlDone:
-				InfoLog(Noticeln("Checkings"))
-				checkAlive(checkURL, checkURLwords)
-				InfoLog(Noticeln("Check done"))
+				//InfoLog(Noticeln("Checkings"))
+				proxies, err := QueryFirstProxyURL()
+				if err != nil {
+					ErrorLog(Warn("[!] query db error: %v", err))
+				}
+				checkAlive(checkURL, checkURLwords, proxies)
+				//InfoLog(Noticeln("Check done"))
 			case <-ticker.C:
-				checkAlive(checkURL, checkURLwords)
-			case <- ctx.Done():
+				InfoLog(Noticeln("开始定期检测代理有效性"))
+				proxies, err := QueryProxyURL()
+				InfoLog(Notice("当前缓存中共有: %v 个代理", len(proxies)))
+				if err != nil {
+					ErrorLog(Warn("[!] query db error: %v", err))
+				}
+				checkAlive(checkURL, checkURLwords, proxies)
+			case <-ctx.Done():
 				return
 			}
 		}
 	}()
 }
 
-func checkAlive(checkURL string, checkURLwords string) {
-	proxies, err := QueryProxyURL()
-	if err != nil {
-		ErrorLog(Warn("[!] query db error: %v", err))
-	}
+func checkAlive(checkURL string, checkURLwords string, proxies []ProxyURL) {
+	//proxies, err := QueryProxyURL()
+	//if err != nil {
+	//	ErrorLog(Warn("[!] query db error: %v", err))
+	//}
+	var wg sync.WaitGroup           // 声明 WaitGroup
+	sem := make(chan struct{}, 100) //maxGoroutines为最大线程
 	for i := range proxies {
 		proxy := proxies[i]
+		wg.Add(1)
+		sem <- struct{}{} // 获取信号量的一个槽位
 		go func() {
+			defer wg.Done() // 协程结束时减少计数
+			defer func() { <-sem }()
+			SetProxyURLUnFirst(proxy.URL)
 			respBody, timeout, avail := CheckProxyAlive(proxy.URL)
 			if avail {
 				if checkURL != "" {
@@ -134,6 +152,11 @@ func checkAlive(checkURL string, checkURLwords string) {
 			AddProxyURLRetry(proxy.URL)
 		}()
 	}
+	Availproxies, err := QueryAvailProxyURL()
+	if err != nil {
+		return
+	}
+	InfoLog(Notice("当前拥有 %d 个有效代理", len(Availproxies)))
 }
 
 func CanBypassGFW(respBody string) bool {

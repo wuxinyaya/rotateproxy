@@ -19,6 +19,7 @@ type ProxyURL struct {
 	Available    bool   `gorm:"column:available"`
 	CanBypassGFW bool   `gorm:"column:can_bypass_gfw"`
 	Timeout      int64  `gorm:"column:timeout;default:0"`
+	First        bool   `gorm:"column:first"`
 }
 
 func (ProxyURL) TableName() string {
@@ -61,6 +62,7 @@ func CreateProxyURL(url string) error {
 		URL:       url,
 		Retry:     0,
 		Available: false,
+		First:     true,
 	})
 	return tx.Error
 }
@@ -77,6 +79,12 @@ func QueryProxyURL() (proxyURLs []ProxyURL, err error) {
 	return
 }
 
+// 查询还没有验证的代理
+func QueryFirstProxyURL() (proxyURLs []ProxyURL, err error) {
+	tx := DB.Where("First = ?", true).Find(&proxyURLs)
+	err = tx.Error
+	return
+}
 func SetProxyURLAvail(url string, timeout int64, canBypassGFW bool) error {
 	tx := DB.Model(&ProxyURL{}).Where("url = ?", url).Updates(ProxyURL{
 		Retry:        0,
@@ -97,6 +105,15 @@ func SetProxyURLUnavail(url string) error {
 
 	tx := DB.Model(&ProxyURL{}).Where("url = ?", url).Update("available", false)
 	ErrorLog(Warn("Mark %v Unavailble!", url))
+	return tx.Error
+}
+
+// 新增
+func SetProxyURLUnFirst(url string) error {
+	if !strings.HasPrefix(url, "socks5://") {
+		url = "socks5://" + url
+	}
+	tx := DB.Model(&ProxyURL{}).Where("url = ?", url).Update("first", false)
 	return tx.Error
 }
 

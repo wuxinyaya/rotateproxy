@@ -180,20 +180,20 @@ func (c *RedirectClient) Serve(ctx context.Context) error {
 		return err
 	}
 	for IsProxyURLBlank() {
-		InfoLog(Noticeln("[*] waiting for crawl proxy..."))
+		InfoLog(Noticeln("[*] 等待有效代理..."))
 		time.Sleep(3 * time.Second)
 	}
 	for {
 		select {
-			case <- ctx.Done():
-				return nil
-			default:
-				conn, err := l.Accept()
-				if err != nil {
-					ErrorLog(Warn("[!] accept error: %v", err))
-					continue
-				}
-				go c.HandleConn(conn)
+		case <-ctx.Done():
+			return nil
+		default:
+			conn, err := l.Accept()
+			if err != nil {
+				ErrorLog(Warn("[!] accept error: %v", err))
+				continue
+			}
+			go c.HandleConn(conn)
 		}
 	}
 }
