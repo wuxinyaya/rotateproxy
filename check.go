@@ -159,8 +159,7 @@ func checkAlive(checkURL string, checkURLwords string, proxies []ProxyURL) {
 	InfoLog(Notice("当前拥有 %d 个有效代理", len(Availproxies)))
 }
 
+// 修改逻辑，所有非中国的IP都判断为可以过GFW（主要用于区别国内IP和国外IP）
 func CanBypassGFW(respBody string) bool {
-	return strings.Contains(respBody, "香港") ||
-		strings.Contains(respBody, "台湾") ||
-		strings.Contains(respBody, "澳门") || !strings.Contains(respBody, "中国")
+	return !strings.Contains(respBody, "中国")
 }

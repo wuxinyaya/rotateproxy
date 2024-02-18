@@ -37,7 +37,7 @@ func init() {
 	flag.StringVar(&rule, "rule", fmt.Sprintf(`protocol=="socks5" && "Version:5 Method:No Authentication(0x00)" && after="%s" && country="CN"`, time.Now().AddDate(0, -3, 0).Format(time.DateOnly)), "search rule")
 	flag.StringVar(&checkURL, "check", ``, "验证代理是翻墙")
 	flag.StringVar(&checkURLwords, "checkWords", ``, "验证代理是否翻墙的关键字（即访问到URL里面包含制定关键字则判断代理可用）")
-	flag.IntVar(&baseCfg.IPRegionFlag, "region", 0, "0: all 1: cannot bypass gfw 2: bypass gfw")
+	flag.IntVar(&baseCfg.IPRegionFlag, "region", 0, "0: 全部 1: 不可翻墙 2: 可以翻墙")
 	flag.IntVar(&baseCfg.SelectStrategy, "strategy", 1, "0: 随机选择（推荐）, 1: 选择最快的")
 	flag.Parse()
 
