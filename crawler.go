@@ -13,7 +13,9 @@ import (
 	"time"
 )
 
-var crawlDone = make(chan struct{})
+var crawlDone = make(chan struct{}, 1)
+var crawlgithubDone = make(chan bool)
+var lockflag bool
 
 type fofaAPIResponse struct {
 	Err     bool       `json:"error"`
@@ -55,8 +57,11 @@ func Crawlergithub(proxy string) {
 	for _, line := range lines {
 		addProxyURL(fmt.Sprintf("socks5://%s", line))
 	}
-	crawlDone <- struct{}{}
-	//fmt.Printf("Error: %s\n", string(body))
+	proxies, err := QueryFirstProxyURL()
+	if err != nil {
+		ErrorLog(Warn("[!] query db error: %v", err))
+	}
+	checkAlive("https://www.google.com", "Copyright The Closure Library Authors", proxies)
 	return
 }
 func Crawlerfofa(fofaApiKey, fofaEmail, rule string, pageNum int, proxy string) (bool, error) {
@@ -122,21 +127,25 @@ func StartRunCrawler(ctx context.Context, fofaApiKey, fofaEmail, rule string, pa
 		Crawlergithub(proxy)
 	}
 	go func() {
+		lockflag = true
 		runCrawlerfofa()
-		InfoLog(Notice("从fofa获取代理服务器完成，60分钟后重新获取"))
+		InfoLog(Notice("从fofa获取代理服务器完成，15分钟后重新获取"))
 		runCrawlergithub()
-		InfoLog(Notice("从github获取代理服务器完成，60分钟后重新获取"))
-		ticker := time.NewTicker(3600 * time.Second)
+		InfoLog(Notice("从github获取代理服务器完成，15分钟后重新获取"))
+		lockflag = false
+		ticker := time.NewTicker(900 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
+				lockflag = true
 				runCrawlerfofa()
-				InfoLog(Notice("从fofa获取代理服务器完成，60分钟后重新获取"))
+				InfoLog(Notice("从fofa获取代理服务器完成，15分钟后重新获取"))
 				runCrawlergithub()
-				InfoLog(Notice("从github获取代理服务器完成，60分钟后重新获取"))
+				InfoLog(Notice("从github获取代理服务器完成，15分钟后重新获取"))
+				lockflag = false
 			case <-ctx.Done():
-				InfoLog(Notice("所有源代理服务器完成，60分钟后重新获取"))
+				//InfoLog(Notice("所有源代理服务器完成，60分钟后重新获取"))
 				return
 			}
 

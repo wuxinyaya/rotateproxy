@@ -97,7 +97,8 @@ func CheckProxyWithCheckURL(proxyURL string, checkURL string, checkURLwords stri
 
 func StartCheckProxyAlive(ctx context.Context, checkURL string, checkURLwords string) {
 	go func() {
-		ticker := time.NewTicker(1800 * time.Second)
+		//5分钟重新检查一次
+		ticker := time.NewTicker(300 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -108,15 +109,18 @@ func StartCheckProxyAlive(ctx context.Context, checkURL string, checkURLwords st
 					ErrorLog(Warn("[!] query db error: %v", err))
 				}
 				checkAlive(checkURL, checkURLwords, proxies)
-				//InfoLog(Noticeln("Check done"))
 			case <-ticker.C:
-				InfoLog(Noticeln("开始定期检测代理有效性"))
-				proxies, err := QueryProxyURL()
-				InfoLog(Notice("当前缓存中共有: %v 个代理", len(proxies)))
-				if err != nil {
-					ErrorLog(Warn("[!] query db error: %v", err))
+				if !lockflag {
+					lockflag = true
+					InfoLog(Noticeln("开始定期检测代理有效性"))
+					proxies, err := QueryProxyURL()
+					InfoLog(Notice("当前缓存中共有: %v 个代理", len(proxies)))
+					if err != nil {
+						ErrorLog(Warn("[!] query db error: %v", err))
+					}
+					checkAlive(checkURL, checkURLwords, proxies)
+					lockflag = false
 				}
-				checkAlive(checkURL, checkURLwords, proxies)
 			case <-ctx.Done():
 				return
 			}
@@ -130,7 +134,7 @@ func checkAlive(checkURL string, checkURLwords string, proxies []ProxyURL) {
 	//	ErrorLog(Warn("[!] query db error: %v", err))
 	//}
 	var wg sync.WaitGroup           // 声明 WaitGroup
-	sem := make(chan struct{}, 100) //maxGoroutines为最大线程
+	sem := make(chan struct{}, 200) //maxGoroutines为最大线程
 	for i := range proxies {
 		proxy := proxies[i]
 		wg.Add(1)
