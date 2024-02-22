@@ -2,14 +2,13 @@ package rotateproxy
 
 import (
 	"errors"
+	"github.com/fatih/color"
 	"io"
 	"log"
 	"math/rand"
 	"os"
 	"sync"
 	"time"
-
-	"github.com/fatih/color"
 )
 
 var errInvalidWrite = errors.New("invalid write result")
@@ -30,8 +29,8 @@ func RandomSyncMap(sMap sync.Map) (key, value interface{}) {
 	return element[0], element[1]
 }
 
-func IsProxyURLBlank() bool {
-	proxies, err := QueryAvailProxyURL()
+func IsProxyURLBlank(IPRegionFlag int) bool {
+	proxies, err := QueryAvailProxyURL(IPRegionFlag)
 	if err != nil {
 		ErrorLog(Warn("[!] Error: %v", err))
 		return false

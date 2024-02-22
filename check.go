@@ -32,8 +32,9 @@ func CheckProxyAlive(proxyURL string) (respBody string, timeout int64, avail boo
 	proxy, _ := url.Parse(proxyURL)
 	httpclient := &http.Client{
 		Transport: &http.Transport{
-			Proxy:             http.ProxyURL(proxy),
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+			Proxy: http.ProxyURL(proxy),
+			//校验https，防止部分代理嗅探流量，可能会导致可用代理较少，不介意可以取消注释
+			//TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			DisableKeepAlives: true,
 		},
 		// shorter timeout for better proxies
@@ -141,22 +142,29 @@ func checkAlive(checkURL string, checkURLwords string, proxies []ProxyURL) {
 			respBody, timeout, avail := CheckProxyAlive(proxy.URL)
 			if avail {
 				if checkURL != "" {
-					timeout, avail = CheckProxyWithCheckURL(proxy.URL, checkURL, checkURLwords)
+					timeout, GFWbypass := CheckProxyWithCheckURL(proxy.URL, checkURL, checkURLwords)
+					if GFWbypass {
+						InfoLog(Notice("%v 可用（过墙）", proxy.URL))
+						SetProxyURLAvail(proxy.URL, timeout, CanBypassGFW(respBody))
+						return
+					}
 				}
-				if avail {
-					InfoLog(Notice("%v 可用", proxy.URL))
-					SetProxyURLAvail(proxy.URL, timeout, CanBypassGFW(respBody))
-					return
-				}
+				InfoLog(Notice("%v 可用", proxy.URL))
+				SetProxyURLAvail(proxy.URL, timeout, CanBypassGFW(respBody))
+				return
 			}
 			AddProxyURLRetry(proxy.URL)
 		}()
 	}
-	Availproxies, err := QueryAvailProxyURL()
+	Availproxies, err := QueryAvailProxyURL(2)
 	if err != nil {
 		return
 	}
-	InfoLog(Notice("当前拥有 %d 个有效代理", len(Availproxies)))
+	AvailCNproxies, err := QueryAvailProxyURL(1)
+	if err != nil {
+		return
+	}
+	InfoLog(Notice("当前拥有 %d 个国内有效代理，%d个国外有效代理", len(AvailCNproxies), len(Availproxies)))
 }
 
 // 修改逻辑，所有非中国的IP都判断为可以过GFW（主要用于区别国内IP和国外IP）

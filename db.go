@@ -67,8 +67,19 @@ func CreateProxyURL(url string) error {
 	return tx.Error
 }
 
-func QueryAvailProxyURL() (proxyURLs []ProxyURL, err error) {
-	tx := DB.Where("available = ?", true).Find(&proxyURLs)
+func QueryAvailProxyURL(IPRegionFlag int) (proxyURLs []ProxyURL, err error) {
+	var proxyURL ProxyURL
+	var tx *gorm.DB
+	switch IPRegionFlag {
+	case 1:
+		tx = DB.Raw(fmt.Sprintf("SELECT * FROM %s WHERE available = ? AND can_bypass_gfw = ? ", proxyURL.TableName()), true, false).Scan(&proxyURLs)
+
+	case 2:
+		tx = DB.Raw(fmt.Sprintf("SELECT * FROM %s WHERE available = ? AND can_bypass_gfw = ? ", proxyURL.TableName()), true, true).Scan(&proxyURLs)
+	default:
+		tx = DB.Raw(fmt.Sprintf("SELECT * FROM %s WHERE available = 1", proxyURL.TableName())).Scan(&proxyURLs)
+	}
+	//tx := DB.Where("available = ? and can_bypass_gfw = ? ", true, gfw).Find(&proxyURLs)
 	err = tx.Error
 	return
 }

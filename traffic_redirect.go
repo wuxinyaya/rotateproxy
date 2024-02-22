@@ -179,7 +179,7 @@ func (c *RedirectClient) Serve(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	for IsProxyURLBlank() {
+	for IsProxyURLBlank(c.config.IPRegionFlag) {
 		InfoLog(Noticeln("[*] 等待有效代理..."))
 		time.Sleep(3 * time.Second)
 	}
