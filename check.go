@@ -134,7 +134,7 @@ func checkAlive(checkURL string, checkURLwords string, proxies []ProxyURL) {
 	//	ErrorLog(Warn("[!] query db error: %v", err))
 	//}
 	var wg sync.WaitGroup           // 声明 WaitGroup
-	sem := make(chan struct{}, 200) //maxGoroutines为最大线程
+	sem := make(chan struct{}, 100) //maxGoroutines为最大线程
 	for i := range proxies {
 		proxy := proxies[i]
 		wg.Add(1)

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -145,8 +146,8 @@ func NewNoAuthPreProcessor(cfg BaseConfig) *NoAuthPreProcessor {
 }
 
 type RedirectClient struct {
-	config *BaseConfig
-
+	config       *BaseConfig
+	configLock   sync.RWMutex
 	currentProxy string
 	preProcessor ConnPreProcessorIface
 }
@@ -157,6 +158,17 @@ func WithConfig(config *BaseConfig) RedirectClientOption {
 	return func(c *RedirectClient) {
 		c.config = config
 	}
+}
+func (c *RedirectClient) SetConfig(config *BaseConfig) {
+	c.configLock.Lock()         // 在更新配置前锁定
+	defer c.configLock.Unlock() // 更新完成后解锁
+	c.config = config
+}
+
+func (c *RedirectClient) GetConfig() *BaseConfig {
+	c.configLock.RLock()         // 获取读锁
+	defer c.configLock.RUnlock() // 完成读取后释放读锁
+	return c.config
 }
 
 func NewRedirectClient(opts ...RedirectClientOption) *RedirectClient {
@@ -175,11 +187,12 @@ func NewRedirectClient(opts ...RedirectClientOption) *RedirectClient {
 }
 
 func (c *RedirectClient) Serve(ctx context.Context) error {
-	l, err := net.Listen("tcp", c.config.ListenAddr)
+	config := c.GetConfig()
+	l, err := net.Listen("tcp", config.ListenAddr)
 	if err != nil {
 		return err
 	}
-	for IsProxyURLBlank(c.config.IPRegionFlag) {
+	for IsProxyURLBlank(config.IPRegionFlag) {
 		InfoLog(Noticeln("[*] 等待有效代理..."))
 		time.Sleep(3 * time.Second)
 	}
@@ -201,8 +214,9 @@ func (c *RedirectClient) Serve(ctx context.Context) error {
 // getValidSocks5Connection 获取可用的socks5连接并完成握手阶段
 func (c *RedirectClient) getValidSocks5Connection() (cc net.Conn, err error) {
 	// var cc net.Conn
+	config := c.GetConfig()
 	for {
-		key, err := RandomProxyURL(c.config.IPRegionFlag, c.config.SelectStrategy)
+		key, err := RandomProxyURL(config.IPRegionFlag, config.SelectStrategy)
 		if err != nil {
 			return nil, err
 		}

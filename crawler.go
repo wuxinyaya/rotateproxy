@@ -14,7 +14,6 @@ import (
 )
 
 var crawlDone = make(chan struct{}, 1)
-var crawlgithubDone = make(chan bool)
 var lockflag bool
 
 type fofaAPIResponse struct {
