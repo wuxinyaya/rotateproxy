@@ -1,3 +1,5 @@
+魔改自用，边改边学
+
 # rotateproxy
 
 利用 fofa 搜索 socks5 开放代理进行代理池轮切的工具
